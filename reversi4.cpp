@@ -13,13 +13,11 @@ constexpr int CPUCOUNT=4;
 constexpr int PACKAGE_LEN=73;
 constexpr long long MODULO=5342931457063200LL;
 
-pollfd fds[4];
-
 struct trie{
     struct trie_node{
         union{
             long long val;
-            char meta[4];
+            char meta[8];
         } u;
         trie_node *next[3];
 
