@@ -14,6 +14,9 @@ constexpr int COUNT=500;
 constexpr int CPUCOUNT=4;
 constexpr int SAVE_DEPTH=40;
 
+int cnt=0;
+int shortdb[64];
+
 int ACTUAL_COUNT=0;
 
 constexpr long long MODULO=5342931457063200LL;
@@ -75,7 +78,7 @@ struct kekdatabase{
     }
 }; 
 
-kekdatabase database,db[4];
+kekdatabase database,db[4],db2[4];
 
 constexpr int gen[8][2]={{1,0},{0,1},{-1,0},{0,-1},{1,1},{-1,1},{-1,-1},{1,-1}};
 
@@ -137,7 +140,6 @@ struct reversi{
     }
 
     bool check_move(int field) const{
-        //if(field<0) return true;
         if(board[field]!=3) return false;
         int f1=field>>3,f2=field&7;
         for(const auto& i:gen){
@@ -168,7 +170,7 @@ struct reversi{
     }
 };
 
-size_t mcts(reversi& pos,kekdatabase& db,int n,bool passed=false){
+size_t mcts(reversi& pos,kekdatabase& db,kekdatabase& db2,int depth,bool passed=false){
     size_t res=2LL<<32;
     int t[64];
     int j=0;
@@ -186,22 +188,25 @@ size_t mcts(reversi& pos,kekdatabase& db,int n,bool passed=false){
 
             //frac y=*(frac*)&res;
 
-            if(n>=SAVE_DEPTH) db[pos.board]+=res;
+            if(depth<=SAVE_DEPTH) db[pos.board]+=res;
+            else if(depth==cnt+1) db2[pos.board]+=res;
             return res;
         }
         reversi pos2=pos;
         pos2.move(-1);
-        res=mcts(pos2,db,n+1,true);
+        res=mcts(pos2,db,db2,depth+1,true);
 
-        if(n>=SAVE_DEPTH) db[pos.board]+=res;
+        if(depth<=SAVE_DEPTH) db[pos.board]+=res;
+        else if(depth==cnt+1) db2[pos.board]+=res;
         return res;
     }
         
     reversi pos2=pos;
-    pos2.move(t[rng[n].get()%j]);
-    res=mcts(pos2,db,n);
+    pos2.move(t[rng[depth].get()%j]);
+    res=mcts(pos2,db,db2,depth+1);
 
-    db[pos.board]+=res;
+    if(depth<=SAVE_DEPTH) db[pos.board]+=res;
+    else if(depth==cnt+1) db2[pos.board]+=res;
     return res;
 }
 
@@ -211,7 +216,7 @@ void *mcts_thread(void *arg){
     reversi **pos=(reversi**)(arg);
     for(int i=0;i<ACTUAL_COUNT;++i){
         reversi pos2=**pos;
-        mcts(pos2,db[n],n);
+        mcts(pos2,db[n],db2[n],cnt);
     }
     pthread_exit(nullptr);
 }
@@ -237,34 +242,16 @@ void mcts_driver(reversi& pos){
     }
 }
 
-int prealphabeta(reversi &pos,int depth=DEPTH,bool passed=false){
-    if(depth==0) return 1;
-
+int premcts(reversi &pos){
     int t[64];
     int j=0;
     for(int i=0;i<64;++i) if(pos.check_move(i)) t[j++]=i;
 
-    if(j==0){
-        if(passed) return 0;
-
-        reversi pos2=pos;
-        pos2.move(-1);
-        return prealphabeta(pos2,depth-1,true);
-    }
-
-    reversi T[64];
-    for(int i=0;i<j;++i){
-        T[t[i]]=pos;
-        T[t[i]].move(t[i]);
-    }
-
-    int res=0;
-    for(int i=0;i<j;++i) res+=prealphabeta(T[t[i]],depth-1);
-    return res;
+    return j;
 }
 
 void make_move(reversi& pos,int usecs,int cnt){
-    int c=prealphabeta(pos,1);
+    int c=premcts(pos);
     if(c==0){
         cout << "IDO -1 -1" << endl;
         pos.move(-1);
@@ -309,7 +296,6 @@ void make_move(reversi& pos,int usecs,int cnt){
 int main(){
     string s;
     reversi g;
-    int cnt=0;
 
     struct sigaction sa2;
     sa2.sa_handler=sigalrm_handler;

@@ -15,6 +15,8 @@ import subprocess
 import threading
 import time
 import chess
+import traceback
+import sys
 
 VERBOSE = 0
 
@@ -165,14 +167,17 @@ class Reversi:
         assert player == len(self.move_list) % 2
         move = tuple(int(m) for m in move_string.split())
         if len(move) != 2:
+            print("Co za dużo, to niezdrowo, kek")
             raise WrongMove
         possible_moves = self.moves(player)
         if not possible_moves:
             if move != (-1, -1):
+                print("No nie da się nic zrobić, kek")
                 raise WrongMove
             move = None
         else:
             if move not in possible_moves:
+                print("Panie, tak się nie da, kek")
                 raise WrongMove
         self.do_move(move, player)
         if self.terminal():
@@ -594,9 +599,12 @@ def play(game_class, num_games, p0cmd, p1cmd,
                         player_move_time, player_remaining_time, move),
                     measure_time=True)
         except WrongMove:
+            traceback.print_exc(file=sys.stdout)
+            print("Ktoś się skuł",cur_player)
             reset()
             return timeout_result[timeout_winner]
         except queue.Empty:
+            print("Tajmałt XD",cur_player)
             # Timeout, kill the players!
             reset(kill=True)
             return timeout_result[timeout_winner]
